@@ -12,6 +12,11 @@
 
 ## 개발 이력
 
+### 2024-03-XX: PWA 설치 경로 수정
+- manifest.json의 start_url 수정
+- GitHub Pages 배포 환경에 맞는 경로 설정
+- iPhone Safari/Chrome에서 정확한 PWA 설치 지원
+
 ### 2024-03-XX: 시간 통계 시각화 개선
 - 파이 차트 추가로 시간 분포 시각화
 - Chart.js 라이브러리 통합
@@ -60,6 +65,18 @@ python -m http.server 8000
 ```
 http://localhost:8000
 ```
+
+## PWA 설치 방법
+
+### 데스크톱
+1. Chrome 브라우저에서 https://greenkey20.github.io/key-journal-pwa/ 접속
+2. 주소창 우측의 설치 아이콘 클릭
+3. "Key Journal 설치" 클릭
+
+### 모바일 (iPhone)
+1. Safari나 Chrome에서 https://greenkey20.github.io/key-journal-pwa/ 접속
+2. 공유 버튼(사파리) 또는 메뉴 버튼(크롬) 클릭
+3. "홈 화면에 추가" 또는 "Add to Home Screen" 선택
 
 ## 배포
 
