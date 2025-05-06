@@ -1,8 +1,8 @@
 {
   "name": "Key Journal",
   "short_name": "Key Journal",
-  "description": "Key Journal PWA",
-  "start_url": "/",
+  "description": "일일 시간 관리 및 기록을 위한 PWA",
+  "start_url": "/key-journal-pwa/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
