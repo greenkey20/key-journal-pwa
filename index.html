@@ -10,6 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="Key Journal" />
   <link rel="apple-touch-icon" href="icons/icon-192x192.png" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <style>
     body {
       margin: 0;
@@ -150,6 +152,15 @@
       align-items: center;
       justify-content: center;
     }
+    .color-swatch.self-dev {
+      width: 48px;
+      border-radius: 16px;
+    }
+    .color-swatch.selected {
+      border: 1px solid #007a4d;
+      outline: 1px solid #007a4d;
+      outline-offset: 1px;
+    }
     .color-swatch span {
       font-size: 10px;
       color: #222;
@@ -157,9 +168,10 @@
       text-align: center;
       width: 100%;
       pointer-events: none;
-    }
-    .color-swatch.selected {
-      border: 3px solid #007a4d;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
     .color-preview {
       margin: 10px 0;
@@ -246,8 +258,8 @@
     }
     .stat-row {
       display: flex;
-      align-items: center;
-      margin-bottom: 8px;
+      align-items: flex-start;
+      margin-bottom: 12px;
       font-size: 14px;
     }
     .color-dot {
@@ -255,19 +267,75 @@
       height: 12px;
       border-radius: 50%;
       margin-right: 8px;
+      margin-top: 3px;
     }
     .stat-label {
       flex: 1;
       min-width: 80px;
+      font-weight: bold;
     }
     .stat-value {
       font-weight: bold;
+      margin-left: 8px;
     }
     .stat-total {
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 15px;
+      padding-top: 15px;
       border-top: 1px solid #eee;
       font-weight: bold;
+    }
+    .time-details {
+      margin-top: 4px;
+      margin-left: 20px;
+      font-size: 12px;
+      color: #666;
+      font-weight: normal;
+    }
+    .time-block {
+      margin-bottom: 2px;
+    }
+    /* 파이 차트 컨테이너 스타일 */
+    .pie-chart-container {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .pie-chart-container h3 {
+      margin: 0 0 15px 0;
+      font-size: 1.1em;
+      color: #333;
+      text-align: center;
+    }
+    .chart-wrapper {
+      position: relative;
+      margin: auto;
+      height: 300px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
+      padding: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
     }
   </style>
 </head>
@@ -299,6 +367,12 @@
   <div class="statistics" id="statistics">
     <h2>시간 통계</h2>
     <div id="stat-content"></div>
+    <div class="pie-chart-container">
+      <h3>시간 분포</h3>
+      <div class="chart-wrapper">
+        <canvas id="timeDistributionChart"></canvas>
+      </div>
+    </div>
   </div>
   <div class="time-range-display" id="time-range-display"></div>
   <button class="fab-edit" id="fab-edit" title="Edit selected cells">✏️</button>
@@ -327,7 +401,9 @@
       tr.appendChild(th);
       for (let min = 0; min < 12; min++) {
         const td = document.createElement('td');
-        td.dataset.hour = ((hour-4+24)%24+4);
+        // 실제 시간 계산 수정
+        const actualHour = ((hour - 4 + 24) % 24);
+        td.dataset.hour = actualHour;
         td.dataset.min = (min+1)*5;
         td.addEventListener('click', function(e) {
           td.classList.toggle('selected');
@@ -346,57 +422,69 @@
 
     // 10가지 색상과 프리셋 텍스트 (하늘색 추가)
     const palette = [
-      { color: '#a0a0a0', preset: 'sleep' },      // 더 어두운 회색
-      { color: '#c0c0c0', preset: 'meal' },       // 더 밝은 회색
-      { color: '#c8e6d2', preset: 'work' },       // 매우 연한 초록
-      { color: '#7dc8a3', preset: 'study' },      // 중간 톤 초록
-      { color: '#2d8a5c', preset: '' },           // 진한 초록
-      { color: '#4a9d6d', preset: '' },           // 중간-진한 초록
-      { color: '#ffd6e0', preset: 'internet' },   // 옅은 분홍
-      { color: '#e0d6ff', preset: '자기계발' },   // 옅은 보라
-      { color: '#baff39', preset: 'exercise' },   // 형광연두(운동)
-      { color: '#90e0ef', preset: 'conversation' } // 하늘색(대화)
+      { color: '#8a8a8a', label: '잠' },      // 더 어두운 회색
+      { color: '#d0d0d0', label: '식사' },     // 더 밝은 회색
+      { color: '#d8f0e0', label: '일' },       // 매우 연한 초록
+      { color: '#a8e0c0', label: '공부1' },    // 연한 초록
+      { color: '#7dc8a3', label: '공부2' },    // 중간 톤 초록
+      { color: '#3a9a6c', label: '공부3' },    // 진한 초록
+      { color: '#ffd6e0', label: '인터넷' },   // 옅은 분홍
+      { color: '#e0d6ff', label: '자기계발' }, // 옅은 보라
+      { color: '#baff39', label: '운동' },     // 형광연두(운동)
+      { color: '#90e0ef', label: '대화' },     // 하늘색(대화)
+      { color: '#f5f0e6', label: '기타' }      // 연한 베이지색
     ];
     let selectedColor = null;
 
     // Render color swatches
     colorPalette.innerHTML = '';
-    const swatchLabels = ['잠', '식사', '일', '공부', '', '', '인터넷', 'self', '운동', '대화'];
     const colorPreview = document.getElementById('color-preview');
     
-    palette.forEach((item, idx) => {
+    // 첫 번째 행: 잠 ~ 공부3
+    const firstRow = document.createElement('div');
+    firstRow.style.display = 'flex';
+    firstRow.style.justifyContent = 'center';
+    firstRow.style.gap = '0.5em';
+    firstRow.style.marginBottom = '0.5em';
+    firstRow.style.width = '100%';
+    
+    // 두 번째 행: 인터넷 ~ 기타
+    const secondRow = document.createElement('div');
+    secondRow.style.display = 'flex';
+    secondRow.style.justifyContent = 'center';
+    secondRow.style.gap = '0.5em';
+    secondRow.style.width = '100%';
+    
+    palette.forEach((item, index) => {
       const swatch = document.createElement('div');
       swatch.className = 'color-swatch';
-      swatch.style.background = item.color;
-      // 라벨 추가
-      if (swatchLabels[idx]) {
-        const label = document.createElement('span');
-        label.textContent = swatchLabels[idx];
-        label.style.fontSize = '10px';
-        label.style.color = '#222';
-        label.style.display = 'block';
-        label.style.textAlign = 'center';
-        label.style.lineHeight = '32px';
-        label.style.fontWeight = 'bold';
-        swatch.appendChild(label);
+      if (item.label === '자기계발') {
+        swatch.classList.add('self-dev');
       }
+      swatch.style.background = item.color;
+      
+      // 라벨 추가
+      const label = document.createElement('span');
+      label.textContent = item.label;
+      label.style.fontSize = '10px';
+      label.style.color = '#222';
+      label.style.display = 'block';
+      label.style.textAlign = 'center';
+      label.style.lineHeight = '32px';
+      label.style.fontWeight = 'bold';
+      swatch.appendChild(label);
+
       swatch.onclick = () => {
         selectedColor = item.color;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         swatch.classList.add('selected');
-        // 프리셋 텍스트 자동 입력 (단, 진한초록3, 진한초록4는 빈값)
-        if (swatchLabels[idx]) {
-          noteInput.value = swatchLabels[idx];
-        } else if (item.preset) {
-          noteInput.value = item.preset;
-        } else {
-          noteInput.value = '';
-        }
+        
+        // 라벨 자동 입력
+        noteInput.value = item.label;
         
         // 색상 미리보기 업데이트
         colorPreview.style.background = item.color;
-        const previewText = swatchLabels[idx] || item.preset || '기타';
-        colorPreview.querySelector('.color-preview-text').textContent = previewText;
+        colorPreview.querySelector('.color-preview-text').textContent = item.label;
         
         // 텍스트 색상 조정 (배경색에 따라 가독성 개선)
         const rgb = hexToRgb(item.color);
@@ -404,8 +492,17 @@
         const brightness = (r * 299 + g * 587 + b * 114) / 1000;
         colorPreview.querySelector('.color-preview-text').style.color = brightness > 128 ? '#333' : '#fff';
       };
-      colorPalette.appendChild(swatch);
+
+      // 첫 번째 행(0-5)과 두 번째 행(6-10)으로 나누어 추가
+      if (index < 6) {
+        firstRow.appendChild(swatch);
+      } else {
+        secondRow.appendChild(swatch);
+      }
     });
+
+    colorPalette.appendChild(firstRow);
+    colorPalette.appendChild(secondRow);
 
     // Show/hide FAB based on selection
     function updateFabVisibility() {
@@ -462,13 +559,9 @@
       selected.forEach(td => {
         td.style.background = selectedColor;
         td.dataset.note = noteInput.value;
+        // 셀에 표시되는 텍스트는 입력된 텍스트 그대로 사용
         td.textContent = noteInput.value;
-        // 진한 초록4 색상일 경우 텍스트 색상을 검은색으로 변경
-        if (selectedColor === '#74c69d') {
-          td.style.color = '#000000';
-        } else {
-          td.style.color = '#000000';
-        }
+        td.style.color = '#000000';
         td.classList.remove('selected');
       });
 
@@ -917,7 +1010,9 @@
           });
         }
         // 통계 업데이트
-        updateStatistics();
+        setTimeout(() => {
+          updateStatistics();
+        }, 100);
       } catch (error) {
         console.error('초기 데이터 로드 중 에러:', error);
       }
@@ -941,71 +1036,142 @@
       return `rgb(${r}, ${g}, ${b})`;
     }
 
+    // RGB를 HEX로 변환하는 함수
+    function rgbToHex(rgb) {
+      // rgb(r, g, b) 형식에서 숫자만 추출
+      const rgbValues = rgb.match(/\d+/g);
+      if (!rgbValues || rgbValues.length !== 3) return null;
+      
+      const [r, g, b] = rgbValues.map(Number);
+      return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('');
+    }
+
     // 통계 업데이트 함수
     function updateStatistics() {
       const cells = Array.from(document.querySelectorAll('#journal-table td'));
       const stats = {};
       let totalMinutes = 0;
 
-      // 각 색상별 시간 계산
+      // 각 색상별 시간 계산 및 시간 블록 수집
       cells.forEach(td => {
         const color = td.style.background || 'empty';
-        const note = td.dataset.note || '';
-        const text = td.textContent || '';
+        const hour = parseInt(td.dataset.hour);
+        const min = parseInt(td.dataset.min);
         
-        // 진한초록3, 진한초록4의 경우 색상과 텍스트를 조합하여 그룹화
-        let colorKey;
-        if (color === '#40916c' || color === '#74c69d') {
-          colorKey = text ? `${color}_${text}` : color;
-        } else {
-          colorKey = color;
-        }
-        
-        if (!stats[colorKey]) {
-          stats[colorKey] = {
+        if (!stats[color]) {
+          stats[color] = {
             minutes: 0,
             color: color,
-            note: text // 텍스트를 note로 저장
+            timeBlocks: []
           };
         }
-        stats[colorKey].minutes += 5; // 각 셀은 5분
+        stats[color].minutes += 5;
         totalMinutes += 5;
+
+        // 시간 블록 수집 - 시작 시간과 종료 시간 설정
+        if (color !== 'empty') {
+          const startMin = min - 5; // 시작 시간은 현재 분 - 5
+          let endHour = hour;
+          let endMin = min;
+
+          // 종료 시간이 60분이 되면 다음 시간으로 넘어가도록 조정
+          if (endMin === 60) {
+            endHour = (endHour + 1) % 24;
+            endMin = 0;
+          }
+
+          const timeStr = `${hour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')} ~ ${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+          if (!stats[color].timeBlocks.includes(timeStr)) {
+            stats[color].timeBlocks.push(timeStr);
+          }
+        }
       });
 
       // 통계 HTML 생성
       const statContent = document.getElementById('stat-content');
       let html = '';
 
-      // 색상별 통계
-      Object.entries(stats).forEach(([key, data]) => {
-        let label;
-        if (key === 'empty') {
-          label = '빈칸';
-        } else if (key.startsWith('#40916c_') || key.startsWith('#74c69d_')) {
-          // 초록3, 초록4의 경우 셀의 텍스트를 라벨로 사용
-          label = data.note || '기타';
-        } else {
-          // RGB 형식으로 변환하여 비교
-          const colorIndex = palette.findIndex(item => {
-            const itemRgb = hexToRgb(item.color);
-            return itemRgb === data.color;
-          });
-          
-          if (colorIndex !== -1) {
-            label = swatchLabels[colorIndex] || palette[colorIndex].preset || '기타';
-          } else {
-            label = '기타';
-          }
-        }
+      // 파이 차트 데이터 준비
+      const chartData = {
+        labels: [],
+        data: [],
+        backgroundColor: []
+      };
 
+      // 색상별 통계 (팔레트 순서대로)
+      palette.forEach(item => {
+        const hexColor = item.color;
+        const rgbColor = hexToRgb(hexColor);
+        const stat = stats[rgbColor];
+        
+        if (stat) {
+          // 시간 블록들을 연속된 구간으로 병합
+          const timeBlocks = stat.timeBlocks.sort();
+          const mergedBlocks = [];
+          let currentBlock = { start: timeBlocks[0].split(' ~ ')[0], end: timeBlocks[0].split(' ~ ')[1] };
+
+          for (let i = 1; i < timeBlocks.length; i++) {
+            const current = timeBlocks[i].split(' ~ ');
+            const prev = timeBlocks[i - 1].split(' ~ ');
+            
+            // 5분 간격으로 연속된 시간인지 확인
+            const [currentHour, currentMin] = current[0].split(':').map(Number);
+            const [prevHour, prevMin] = prev[1].split(':').map(Number);
+            
+            const currentMins = currentHour * 60 + currentMin;
+            const prevMins = prevHour * 60 + prevMin;
+            
+            if (currentMins - prevMins === 0) {
+              currentBlock.end = current[1];
+            } else {
+              mergedBlocks.push(currentBlock);
+              currentBlock = { start: current[0], end: current[1] };
+            }
+          }
+
+          // 마지막 블록 처리
+          if (currentBlock.start) {
+            mergedBlocks.push(currentBlock);
+          }
+
+          // 파이 차트 데이터 추가
+          chartData.labels.push(item.label);
+          chartData.data.push(stat.minutes);
+          chartData.backgroundColor.push(hexColor);
+
+          html += `
+            <div class="stat-row">
+              <div class="color-dot" style="background: ${stat.color}"></div>
+              <div class="stat-label">${item.label}</div>
+              <div class="stat-value">${formatTime(stat.minutes)}</div>
+            </div>
+            <div class="time-details">
+              ${mergedBlocks.map(block => 
+                `<div class="time-block">${block.start} ~ ${block.end}</div>`
+              ).join('')}
+            </div>
+          `;
+        }
+      });
+
+      // 빈칸 통계 추가
+      if (stats['empty']) {
         html += `
           <div class="stat-row">
-            <div class="color-dot" style="background: ${data.color === 'empty' ? '#f0f0f0' : data.color}"></div>
-            <div class="stat-label">${label}</div>
-            <div class="stat-value">${formatTime(data.minutes)}</div>
+            <div class="color-dot" style="background: #f0f0f0"></div>
+            <div class="stat-label">빈칸</div>
+            <div class="stat-value">${formatTime(stats['empty'].minutes)}</div>
           </div>
         `;
-      });
+
+        // 빈칸 파이 차트 데이터 추가
+        chartData.labels.push('빈칸');
+        chartData.data.push(stats['empty'].minutes);
+        chartData.backgroundColor.push('#f0f0f0');
+      }
 
       // 총계 (24시간 = 1440분)
       html += `
@@ -1018,6 +1184,105 @@
       `;
 
       statContent.innerHTML = html;
+
+      // 파이 차트 업데이트
+      updatePieChart(chartData);
+    }
+
+    // 파이 차트 생성/업데이트 함수
+    function updatePieChart(chartData) {
+      const ctx = document.getElementById('timeDistributionChart');
+      if (!ctx) {
+        console.error('Chart canvas element not found');
+        return;
+      }
+
+      // 기존 차트가 있다면 제거
+      if (window.timeDistributionChart instanceof Chart) {
+        window.timeDistributionChart.destroy();
+      }
+
+      try {
+        // 새 차트 생성
+        window.timeDistributionChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: chartData.labels,
+            datasets: [{
+              data: chartData.data,
+              backgroundColor: chartData.backgroundColor,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false // 기본 범례 숨기기
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const minutes = context.raw;
+                    const hours = Math.floor(minutes / 60);
+                    const mins = minutes % 60;
+                    const percentage = ((minutes / 1440) * 100).toFixed(1);
+                    return `${context.label}: ${hours}시간 ${mins}분 (${percentage}%)`;
+                  }
+                }
+              },
+              datalabels: {
+                color: '#000',
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                formatter: function(value, context) {
+                  const percentage = ((value / 1440) * 100).toFixed(1);
+                  return percentage >= 5 ? context.chart.data.labels[context.dataIndex] : '';
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels] // datalabels 플러그인 활성화
+        });
+
+        // 범례 HTML 생성
+        const legendContainer = document.createElement('div');
+        legendContainer.className = 'chart-legend';
+        
+        chartData.labels.forEach((label, index) => {
+          const legendItem = document.createElement('div');
+          legendItem.className = 'legend-item';
+          
+          const colorBox = document.createElement('div');
+          colorBox.className = 'legend-color';
+          colorBox.style.backgroundColor = chartData.backgroundColor[index];
+          
+          const labelText = document.createElement('span');
+          const minutes = chartData.data[index];
+          const hours = Math.floor(minutes / 60);
+          const mins = minutes % 60;
+          const percentage = ((minutes / 1440) * 100).toFixed(1);
+          labelText.textContent = `${label} (${hours}시간 ${mins}분, ${percentage}%)`;
+          
+          legendItem.appendChild(colorBox);
+          legendItem.appendChild(labelText);
+          legendContainer.appendChild(legendItem);
+        });
+
+        // 기존 범례 제거 후 새 범례 추가
+        const existingLegend = document.querySelector('.chart-legend');
+        if (existingLegend) {
+          existingLegend.remove();
+        }
+        document.querySelector('.pie-chart-container').appendChild(legendContainer);
+
+        console.log('Chart created successfully');
+      } catch (error) {
+        console.error('Error creating chart:', error);
+      }
     }
 
     if ('serviceWorker' in navigator) {
