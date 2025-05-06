@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Daily Journal</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#40916c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Key Journal" />
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png" />
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f9f9f9;
+      color: #222;
+      max-width: 480px;
+      margin: auto;
+    }
+    header {
+      background: #40916c;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    .calendar {
+      display: flex;
+      justify-content: center;
+      padding: 1rem 0 0.5rem 0;
+    }
+    .journal-grid {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 375px;
+      max-width: 375px;
+      background: white;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      text-align: center;
+      vertical-align: middle;
+      padding: 0.2em 0.1em;
+      min-width: 12px;
+      max-width: 12px;
+      width: 12px;
+      height: 22px;
+      user-select: none;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    th:first-child {
+      min-width: 35px;
+      max-width: 35px;
+      width: 35px;
+    }
+    th {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+    .selected {
+      outline: 2px solid #007aff;
+      background: #e6f0ff;
+    }
+    @media (max-width: 480px) {
+      table {
+        font-size: 9px;
+        min-width: 375px;
+        max-width: 375px;
+      }
+      th, td {
+        min-width: 12px;
+        max-width: 12px;
+        width: 12px;
+        height: 16px;
+      }
+      th:first-child {
+        min-width: 35px;
+        max-width: 35px;
+        width: 35px;
+      }
+    }
+    .fab-edit {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #007a4d;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      font-size: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      cursor: pointer;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.3);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 1.2em;
+      border-radius: 10px;
+      max-width: 90vw;
+      width: 320px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 1em;
+    }
+    .color-palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      justify-content: center;
+      max-width: 220px;
+      margin: 0 auto;
+    }
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #eee;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: border 0.2s;
+      margin-bottom: 0.2em;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .color-swatch span {
+      font-size: 10px;
+      color: #222;
+      font-weight: bold;
+      text-align: center;
+      width: 100%;
+      pointer-events: none;
+    }
+    .color-swatch.selected {
+      border: 3px solid #007a4d;
+    }
+    .color-preview {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      transition: background-color 0.3s;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .color-preview-text {
+      font-size: 14px;
+      margin: 5px 0;
+      color: #333;
+      word-break: break-all;
+    }
+    .time-range-display {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      display: none;
+      z-index: 1000;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .modal textarea {
+      width: 100%;
+      min-height: 60px;
+      resize: vertical;
+      font-size: 1em;
+      padding: 0.5em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5em;
+    }
+    .modal-actions button {
+      padding: 0.5em 1.2em;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    .modal-actions .apply-btn {
+      background: #007a4d;
+      color: white;
+    }
+    .modal-actions .cancel-btn {
+      background: #eee;
+      color: #333;
+    }
+    .note-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: #007a4d;
+      border-radius: 50%;
+      margin-left: 2px;
+      vertical-align: middle;
+    }
+    .highlight-area { box-shadow: 0 0 0 2px #52b788 inset !important; }
+    .danger-btn { background: #e74c3c !important; color: #fff !important; border: none; }
+    
+    /* 통계 섹션 스타일 */
+    .statistics {
+      margin: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .statistics h2 {
+      margin: 0 0 15px 0;
+      font-size: 1.2em;
+      color: #333;
+    }
+    .stat-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .stat-label {
+      flex: 1;
+      min-width: 80px;
+    }
+    .stat-value {
+      font-weight: bold;
+    }
+    .stat-total {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Daily Journal</h1>
+  </header>
+  <div class="calendar">
+    <input type="date" id="journal-date" />
+  </div>
+  <div class="journal-grid">
+    <table id="journal-table">
+      <thead>
+        <tr>
+          <th></th>
+          <!-- Minute headers -->
+          <script>
+            for (let i = 1; i <= 12; i++) {
+              document.write(`<th>${i*5}</th>`);
+            }
+          </script>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be generated by JS -->
+      </tbody>
+    </table>
+  </div>
+  <div class="statistics" id="statistics">
+    <h2>시간 통계</h2>
+    <div id="stat-content"></div>
+  </div>
+  <div class="time-range-display" id="time-range-display"></div>
+  <button class="fab-edit" id="fab-edit" title="Edit selected cells">✏️</button>
+  <div class="modal" id="edit-modal">
+    <div class="modal-content">
+      <div><b>Fill selected cells</b></div>
+      <div class="color-palette" id="color-palette">
+        <!-- Color swatches will be generated by JS -->
+      </div>
+      <textarea id="note-input" placeholder="Enter your note here..."></textarea>
+      <div class="modal-actions">
+        <button class="apply-btn" id="apply-edit">Apply</button>
+        <button class="cancel-btn" id="cancel-edit">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Generate table body
+    const tbody = document.querySelector('#journal-table tbody');
+    for (let hour = 4; hour < 28; hour++) { // 4am to 3am next day
+      const tr = document.createElement('tr');
+      // Hour label: wrap after 23:00 to 0:00, 1:00, etc.
+      const hourLabel = ((hour - 4 + 24) % 24) + ':00';
+      const th = document.createElement('th');
+      th.textContent = hourLabel;
+      tr.appendChild(th);
+      for (let min = 0; min < 12; min++) {
+        const td = document.createElement('td');
+        td.dataset.hour = ((hour-4+24)%24+4);
+        td.dataset.min = (min+1)*5;
+        td.addEventListener('click', function(e) {
+          td.classList.toggle('selected');
+        });
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    // --- Multi-cell selection and edit modal logic ---
+    const fabEdit = document.getElementById('fab-edit');
+    const editModal = document.getElementById('edit-modal');
+    const colorPalette = document.getElementById('color-palette');
+    const noteInput = document.getElementById('note-input');
+    const applyEdit = document.getElementById('apply-edit');
+    const cancelEdit = document.getElementById('cancel-edit');
+
+    // 10가지 색상과 프리셋 텍스트 (하늘색 추가)
+    const palette = [
+      { color: '#cccccc', preset: 'sleep' },      // 회색1
+      { color: '#888888', preset: 'meal' },       // 회색2
+      { color: '#b7e4c7', preset: 'work' },       // 옅은 초록(초록1)
+      { color: '#52b788', preset: 'study' },      // 조금 더 진한 초록(초록2)
+      { color: '#40916c', preset: '' },           // 진한 초록3 (빈값)
+      { color: '#74c69d', preset: '' },           // 밝은 초록4 (빈값)
+      { color: '#ffd6e0', preset: 'internet' },   // 옅은 분홍
+      { color: '#e0d6ff', preset: '자기계발' },   // 옅은 보라
+      { color: '#baff39', preset: 'exercise' },   // 형광연두(운동)
+      { color: '#90e0ef', preset: 'conversation' } // 하늘색(대화)
+    ];
+    let selectedColor = null;
+
+    // Render color swatches
+    colorPalette.innerHTML = '';
+    const swatchLabels = ['잠', '식사', '일', '공부', '', '', '인터넷', 'self', '운동', '대화'];
+    const colorPreview = document.getElementById('color-preview');
+    
+    palette.forEach((item, idx) => {
+      const swatch = document.createElement('div');
+      swatch.className = 'color-swatch';
+      swatch.style.background = item.color;
+      // 라벨 추가
+      if (swatchLabels[idx]) {
+        const label = document.createElement('span');
+        label.textContent = swatchLabels[idx];
+        label.style.fontSize = '10px';
+        label.style.color = '#222';
+        label.style.display = 'block';
+        label.style.textAlign = 'center';
+        label.style.lineHeight = '32px';
+        label.style.fontWeight = 'bold';
+        swatch.appendChild(label);
+      }
+      swatch.onclick = () => {
+        selectedColor = item.color;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+        // 프리셋 텍스트 자동 입력 (단, 진한초록3, 진한초록4는 빈값)
+        if (swatchLabels[idx]) {
+          noteInput.value = swatchLabels[idx];
+        } else if (item.preset) {
+          noteInput.value = item.preset;
+        } else {
+          noteInput.value = '';
+        }
+        
+        // 색상 미리보기 업데이트
+        colorPreview.style.background = item.color;
+        const previewText = swatchLabels[idx] || item.preset || '기타';
+        colorPreview.querySelector('.color-preview-text').textContent = previewText;
+        
+        // 텍스트 색상 조정 (배경색에 따라 가독성 개선)
+        const rgb = hexToRgb(item.color);
+        const [r, g, b] = rgb.match(/\d+/g).map(Number);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        colorPreview.querySelector('.color-preview-text').style.color = brightness > 128 ? '#333' : '#fff';
+      };
+      colorPalette.appendChild(swatch);
+    });
+
+    // Show/hide FAB based on selection
+    function updateFabVisibility() {
+      const selected = document.querySelectorAll('#journal-table td.selected');
+      fabEdit.style.display = selected.length > 0 ? 'flex' : 'none';
+    }
+    document.addEventListener('click', updateFabVisibility, true);
+
+    // Open modal on FAB click
+    fabEdit.onclick = () => {
+      const selected = document.querySelectorAll('td.selected');
+      // 기본값: 색상 선택 없음, noteInput 빈 값
+      selectedColor = null;
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      noteInput.value = '';
+      
+      // 기존 메모가 있으면 첫 셀의 note와 color를 보여줌
+      if (selected.length > 0) {
+        const firstCell = selected[0];
+        const note = firstCell.dataset.note || '';
+        const color = firstCell.style.background;
+        
+        if (note) noteInput.value = note;
+        if (color) {
+          selectedColor = color;
+          // 해당 색상의 swatch 찾아서 선택
+          document.querySelectorAll('.color-swatch').forEach(s => {
+            if (s.style.background === color) {
+              s.classList.add('selected');
+            } else {
+              s.classList.remove('selected');
+            }
+          });
+        }
+      }
+      editModal.style.display = 'flex';
+    };
+    // Close modal
+    cancelEdit.onclick = () => {
+      editModal.style.display = 'none';
+    };
+    // Apply color and note to selected cells
+    applyEdit.onclick = async () => {
+      const selected = Array.from(document.querySelectorAll('td.selected'));
+      if (selected.length === 0) return;
+      
+      // 텍스트 입력 검증
+      if (!noteInput.value.trim()) {
+        alert('내용을 입력해 주세요');
+        return;
+      }
+      
+      // 모든 선택된 셀에 적용
+      selected.forEach(td => {
+        td.style.background = selectedColor;
+        td.dataset.note = noteInput.value;
+        td.textContent = noteInput.value;
+        // 진한 초록4 색상일 경우 텍스트 색상을 검은색으로 변경
+        if (selectedColor === '#74c69d') {
+          td.style.color = '#000000';
+        } else {
+          td.style.color = '#000000';
+        }
+        td.classList.remove('selected');
+      });
+
+      // 현재 날짜의 데이터 저장
+      try {
+        await saveJournalData(dateInput.value);
+        updateStatistics();
+      } catch (error) {
+        console.error('데이터 저장 중 에러:', error);
+      }
+
+      editModal.style.display = 'none';
+      updateFabVisibility();
+    };
+    // Prevent modal click from closing
+    editModal.querySelector('.modal-content').onclick = e => e.stopPropagation();
+    editModal.onclick = () => { editModal.style.display = 'none'; };
+
+    let isSelecting = false;
+    let startCell = null;
+    let endCell = null;
+
+    // Helper to get cell position (row, col)
+    function getCellPos(td) {
+      const tr = td.parentElement;
+      const row = Array.from(tr.parentElement.children).indexOf(tr);
+      const col = Array.from(tr.children).indexOf(td);
+      return { row, col };
+    }
+
+    // Helper to get all cells in a time span between two cells (inclusive)
+    function getTimeSpanCells(start, end) {
+      const startRow = start.row, startCol = start.col;
+      const endRow = end.row, endCol = end.col;
+      let cells = [];
+      // Calculate linear index for start and end
+      const cols = tbody.children[0].children.length;
+      const startIdx = startRow * cols + startCol;
+      const endIdx = endRow * cols + endCol;
+      const [minIdx, maxIdx] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)];
+      for (let idx = minIdx; idx <= maxIdx; idx++) {
+        const r = Math.floor(idx / cols);
+        const c = idx % cols;
+        const tr = tbody.children[r];
+        const td = tr.children[c];
+        if (td && td.tagName === 'TD') cells.push(td);
+      }
+      return cells;
+    }
+
+    // Update selectRect to use getTimeSpanCells
+    function selectRect(start, end) {
+      document.querySelectorAll('#journal-table td').forEach(td => td.classList.remove('selected'));
+      getTimeSpanCells(start, end).forEach(td => td.classList.add('selected'));
+    }
+
+    // 텍스트 입력 실시간 미리보기
+    noteInput.addEventListener('input', function() {
+      // 미리보기 관련 코드 제거
+    });
+
+    // 시간 포맷팅 함수
+    function formatTime(minutes) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      
+      if (hours > 0) {
+        return `${hours}시간 ${mins}분`;
+      } else {
+        return `${mins}분`;
+      }
+    }
+
+    // 시간 범위 표시 함수
+    function updateTimeRangeDisplay(start, end) {
+      const display = document.getElementById('time-range-display');
+      if (!start || !end) {
+        display.style.display = 'none';
+        return;
+      }
+
+      const startHour = parseInt(start.dataset.hour);
+      const startMin = parseInt(start.dataset.min);
+      const endHour = parseInt(end.dataset.hour);
+      const endMin = parseInt(end.dataset.min);
+
+      // 시간 계산 수정
+      let totalStartMinutes = startHour * 60 + startMin;
+      let totalEndMinutes = endHour * 60 + endMin;
+      
+      // 종료 시간이 시작 시간보다 이전인 경우 (다음날로 넘어가는 경우)
+      if (totalEndMinutes < totalStartMinutes) {
+        totalEndMinutes += 24 * 60; // 24시간 추가
+      }
+
+      const startTime = formatTime(totalStartMinutes);
+      const endTime = formatTime(totalEndMinutes);
+      
+      display.textContent = `${startTime} - ${endTime}`;
+      display.style.display = 'block';
+
+      // 위치 계산 및 설정
+      const rect = end.getBoundingClientRect();
+      const displayRect = display.getBoundingClientRect();
+      
+      // 셀 위에 표시
+      display.style.top = `${rect.top - displayRect.height - 5}px`;
+      display.style.left = `${rect.left + (rect.width - displayRect.width) / 2}px`;
+    }
+
+    // Mouse events
+    tbody.addEventListener('mousedown', function(e) {
+      if (e.target.tagName === 'TD') {
+        isSelecting = true;
+        startCell = getCellPos(e.target);
+        selectRect(startCell, startCell);
+        e.preventDefault();
+      }
+    });
+
+    tbody.addEventListener('mouseover', function(e) {
+      if (isSelecting && e.target.tagName === 'TD') {
+        endCell = getCellPos(e.target);
+        selectRect(startCell, endCell);
+      }
+    });
+
+    document.addEventListener('mouseup', function(e) {
+      if (isSelecting) {
+        isSelecting = false;
+        startCell = null;
+        endCell = null;
+        updateFabVisibility();
+      }
+    });
+
+    // Touch events
+    let touchSelecting = false;
+    let touchStartCell = null;
+    let touchEndCell = null;
+    tbody.addEventListener('touchstart', function(e) {
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (target && target.tagName === 'TD') {
+        touchSelecting = true;
+        touchStartCell = getCellPos(target);
+        selectRect(touchStartCell, touchStartCell);
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    tbody.addEventListener('touchmove', function(e) {
+      if (touchSelecting) {
+        const touch = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && target.tagName === 'TD') {
+          touchEndCell = getCellPos(target);
+          selectRect(touchStartCell, touchEndCell);
+        }
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', function(e) {
+      if (touchSelecting) {
+        touchSelecting = false;
+        touchStartCell = null;
+        touchEndCell = null;
+        updateFabVisibility();
+      }
+    });
+
+    // --- 병합된 영역 전체 선택 및 시각적 피드백 ---
+    // 병합된 영역(같은 note, 같은 색상) 찾기
+    function findMergedAreaCells(centerCell) {
+      const note = centerCell.dataset.note;
+      const color = centerCell.style.background;
+      if (!note && !color) return [];
+      // 병합 영역은 note와 color가 모두 같고, 인접한 셀들로만 확장
+      const visited = new Set();
+      const area = [];
+      const tbody = document.querySelector('#journal-table tbody');
+      const rows = Array.from(tbody.children);
+      const getCell = (row, col) => {
+        if (row < 0 || row >= rows.length) return null;
+        const tr = rows[row];
+        if (!tr) return null;
+        const td = tr.children[col];
+        if (!td || td.tagName !== 'TD') return null;
+        return td;
+      };
+      // BFS로 인접한 같은 note, color 셀 찾기
+      const startPos = (() => {
+        const tr = centerCell.parentElement;
+        const row = rows.indexOf(tr);
+        const col = Array.from(tr.children).indexOf(centerCell);
+        return { row, col };
+      })();
+      const queue = [startPos];
+      while (queue.length) {
+        const { row, col } = queue.shift();
+        const key = row + ',' + col;
+        if (visited.has(key)) continue;
+        const cell = getCell(row, col);
+        if (!cell) continue;
+        if (cell.dataset.note !== note || cell.style.background !== color) continue;
+        visited.add(key);
+        area.push(cell);
+        // 상하좌우 인접 셀 검사
+        queue.push({ row: row-1, col });
+        queue.push({ row: row+1, col });
+        queue.push({ row, col: col-1 });
+        queue.push({ row, col: col+1 });
+      }
+      return area;
+    }
+
+    // 시각적 피드백: 잠깐 하이라이트
+    function highlightArea(area) {
+      area.forEach(td => td.classList.add('highlight-area'));
+      setTimeout(() => {
+        area.forEach(td => td.classList.remove('highlight-area'));
+      }, 400);
+    }
+
+    // 기존 td 클릭 이벤트 제거 및 재설정 대신 이벤트 위임 방식 사용
+    tbody.addEventListener('click', function(e) {
+      const td = e.target.closest('td');
+      if (!td || isSelecting || touchSelecting) return;
+      
+      // 단일 셀 선택으로 변경
+      document.querySelectorAll('td.selected').forEach(cell => {
+        if (cell !== td) cell.classList.remove('selected');
+      });
+      td.classList.toggle('selected');
+      
+      // 선택된 셀이 있으면 모달 표시
+      if (td.classList.contains('selected')) {
+        selectedColor = td.style.background || null;
+        document.querySelectorAll('.color-swatch').forEach(s => {
+          if (s.style.background === selectedColor) s.classList.add('selected');
+          else s.classList.remove('selected');
+        });
+        noteInput.value = td.dataset.note || '';
+        editModal.style.display = 'flex';
+      }
+      
+      updateFabVisibility();
+    });
+
+    // 모달에 삭제 버튼 추가
+    let delBtn = document.getElementById('delete-edit');
+    if (!delBtn) {
+      console.log('삭제 버튼 생성 중...');
+      delBtn = document.createElement('button');
+      delBtn.className = 'danger-btn';
+      delBtn.id = 'delete-edit';
+      delBtn.textContent = '삭제';
+      delBtn.style.marginRight = 'auto';
+      document.querySelector('.modal-actions').prepend(delBtn);
+      console.log('삭제 버튼 생성 완료');
+    } else {
+      console.log('삭제 버튼이 이미 존재함');
+      delBtn.className = 'danger-btn';
+    }
+
+    // 삭제 버튼 동작: 선택된 셀들에서 note, color, text를 지우고, 남은 각 연속 영역의 중앙에 텍스트 다시 표시
+    delBtn.onclick = async () => {
+      const selected = Array.from(document.querySelectorAll('td.selected'));
+      if (selected.length === 0) return;
+      
+      // 모든 선택된 셀 삭제
+      selected.forEach(td => {
+        td.style.background = '';
+        td.dataset.note = '';
+        td.textContent = '';
+        td.classList.remove('selected');
+      });
+
+      // 현재 날짜의 데이터 저장
+      try {
+        await saveJournalData(dateInput.value);
+        updateStatistics();
+      } catch (error) {
+        console.error('데이터 저장 중 에러:', error);
+      }
+
+      editModal.style.display = 'none';
+      updateFabVisibility();
+    };
+
+    // IndexedDB 초기화 및 데이터베이스 설정
+    const DB_NAME = 'journalDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'journalEntries';
+    let db;
+
+    // IndexedDB 초기화 함수
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = (event) => {
+          console.error('IndexedDB 에러:', event.target.error);
+          reject(event.target.error);
+        };
+
+        request.onsuccess = (event) => {
+          db = event.target.result;
+          console.log('IndexedDB 연결 성공');
+          resolve(db);
+        };
+
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'date' });
+            store.createIndex('date', 'date', { unique: true });
+            console.log('Object store 생성 완료');
+          }
+        };
+      });
+    }
+
+    // 데이터 저장 함수
+    async function saveJournalData(date) {
+      if (!db) await initDB();
+      
+      return new Promise((resolve, reject) => {
+        const cells = Array.from(document.querySelectorAll('#journal-table td'));
+        const journalData = cells.map(td => ({
+          hour: td.dataset.hour,
+          min: td.dataset.min,
+          note: td.dataset.note || '',
+          color: td.style.background || '',
+          text: td.textContent || ''
+        }));
+
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put({
+          date: date,
+          data: journalData
+        });
+
+        request.onsuccess = () => {
+          console.log('데이터 저장 성공:', date);
+          resolve();
+        };
+
+        request.onerror = (event) => {
+          console.error('데이터 저장 실패:', event.target.error);
+          reject(event.target.error);
+        };
+      });
+    }
+
+    // 데이터 불러오기 함수
+    async function loadJournalData(date) {
+      if (!db) await initDB();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(date);
+
+        request.onsuccess = (event) => {
+          const result = event.target.result;
+          if (result) {
+            console.log('데이터 불러오기 성공:', date);
+            resolve(result.data);
+          } else {
+            console.log('저장된 데이터 없음:', date);
+            resolve(null);
+          }
+        };
+
+        request.onerror = (event) => {
+          console.error('데이터 불러오기 실패:', event.target.error);
+          reject(event.target.error);
+        };
+      });
+    }
+
+    // 날짜 변경 시 데이터 불러오기
+    const dateInput = document.getElementById('journal-date');
+    dateInput.addEventListener('change', async (e) => {
+      const selectedDate = e.target.value;
+      
+      // 선택된 셀들 초기화
+      document.querySelectorAll('td.selected').forEach(td => {
+        td.classList.remove('selected');
+      });
+      
+      // 모든 셀 초기화
+      document.querySelectorAll('#journal-table td').forEach(td => {
+        td.style.background = '';
+        td.dataset.note = '';
+        td.textContent = '';
+        td.style.color = '#000000';
+      });
+      
+      // 수정 버튼 숨기기
+      updateFabVisibility();
+      
+      try {
+        const data = await loadJournalData(selectedDate);
+        if (data) {
+          // 저장된 데이터 적용
+          data.forEach(cellData => {
+            const td = document.querySelector(`td[data-hour="${cellData.hour}"][data-min="${cellData.min}"]`);
+            if (td) {
+              td.style.background = cellData.color;
+              td.dataset.note = cellData.note;
+              td.textContent = cellData.text;
+              // 진한 초록4 색상일 경우 텍스트 색상을 검은색으로 설정
+              if (cellData.color === '#74c69d') {
+                td.style.color = '#000000';
+              }
+            }
+          });
+        }
+        // 통계 업데이트
+        updateStatistics();
+      } catch (error) {
+        console.error('데이터 불러오기 중 에러:', error);
+      }
+    });
+
+    // 페이지 로드 시 오늘 날짜 설정 및 데이터 불러오기
+    window.addEventListener('load', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      dateInput.value = today;
+      
+      try {
+        await initDB();
+        const data = await loadJournalData(today);
+        if (data) {
+          data.forEach(cellData => {
+            const td = document.querySelector(`td[data-hour="${cellData.hour}"][data-min="${cellData.min}"]`);
+            if (td) {
+              td.style.background = cellData.color;
+              td.dataset.note = cellData.note;
+              td.textContent = cellData.text;
+            }
+          });
+        }
+        // 통계 업데이트
+        updateStatistics();
+      } catch (error) {
+        console.error('초기 데이터 로드 중 에러:', error);
+      }
+    });
+
+    // HEX를 RGB로 변환하는 함수
+    function hexToRgb(hex) {
+      // # 제거
+      hex = hex.replace('#', '');
+      
+      // 3자리 HEX를 6자리로 변환
+      if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      }
+      
+      // RGB 값 추출
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // 통계 업데이트 함수
+    function updateStatistics() {
+      const cells = Array.from(document.querySelectorAll('#journal-table td'));
+      const stats = {};
+      let totalMinutes = 0;
+
+      // 각 색상별 시간 계산
+      cells.forEach(td => {
+        const color = td.style.background || 'empty';
+        const note = td.dataset.note || '';
+        const text = td.textContent || '';
+        
+        // 진한초록3, 진한초록4의 경우 색상과 텍스트를 조합하여 그룹화
+        let colorKey;
+        if (color === '#40916c' || color === '#74c69d') {
+          colorKey = text ? `${color}_${text}` : color;
+        } else {
+          colorKey = color;
+        }
+        
+        if (!stats[colorKey]) {
+          stats[colorKey] = {
+            minutes: 0,
+            color: color,
+            note: text // 텍스트를 note로 저장
+          };
+        }
+        stats[colorKey].minutes += 5; // 각 셀은 5분
+        totalMinutes += 5;
+      });
+
+      // 통계 HTML 생성
+      const statContent = document.getElementById('stat-content');
+      let html = '';
+
+      // 색상별 통계
+      Object.entries(stats).forEach(([key, data]) => {
+        let label;
+        if (key === 'empty') {
+          label = '빈칸';
+        } else if (key.startsWith('#40916c_') || key.startsWith('#74c69d_')) {
+          // 초록3, 초록4의 경우 셀의 텍스트를 라벨로 사용
+          label = data.note || '기타';
+        } else {
+          // RGB 형식으로 변환하여 비교
+          const colorIndex = palette.findIndex(item => {
+            const itemRgb = hexToRgb(item.color);
+            return itemRgb === data.color;
+          });
+          
+          if (colorIndex !== -1) {
+            label = swatchLabels[colorIndex] || palette[colorIndex].preset || '기타';
+          } else {
+            label = '기타';
+          }
+        }
+
+        html += `
+          <div class="stat-row">
+            <div class="color-dot" style="background: ${data.color === 'empty' ? '#f0f0f0' : data.color}"></div>
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${formatTime(data.minutes)}</div>
+          </div>
+        `;
+      });
+
+      // 총계 (24시간 = 1440분)
+      html += `
+        <div class="stat-total">
+          <div class="stat-row">
+            <div class="stat-label">총계</div>
+            <div class="stat-value">24시간</div>
+          </div>
+        </div>
+      `;
+
+      statContent.innerHTML = html;
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => {
+            console.log('ServiceWorker registration successful');
+          })
+          .catch(err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
+  </script>
+</body>
+</html>

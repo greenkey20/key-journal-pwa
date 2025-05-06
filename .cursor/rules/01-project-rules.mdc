@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Rules
+
+1. Use only HTML, CSS, and JavaScript
+2. Mobile-first responsive design (max-width: 480px; @media min-width: 640px)
+3. [manifest.json](mdc:manifest.json) and Service Worker are required
+4. Support local CRUD with IndexedDB
+5. Use Conventional Commits for commit messages
